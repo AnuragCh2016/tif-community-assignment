@@ -1,5 +1,6 @@
 import Role from "../models/Role.js";
 import { validationResult } from "express-validator";
+import { generateErrCode } from "../utils/generateErrorCode.js";
 
 export class RoleController{
     static createRole = async (req, res) => {
@@ -7,9 +8,15 @@ export class RoleController{
         try {
             const errors = validationResult(req);
             if(!errors.isEmpty()){
+                const transformedErrors = errors.array().map((error) => ({
+                    param: error.param,
+                    message: error.msg,
+                    code: generateErrCode(error.msg),
+                  }));
+
                 return res.status(400).json({
                     status:false,
-                    error:errors.array()
+                    error:transformedErrors
                 });
             }
             const role = await Role.create({name});

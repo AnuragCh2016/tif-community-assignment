@@ -1,15 +1,22 @@
 import User from '../models/User.js'
 import jwt from 'jsonwebtoken'
 import { validationResult } from 'express-validator';
+import { generateErrCode } from '../utils/generateErrorCode.js';
 
 export class AuthController {
     static registerUser = async(req,res) => {
         try {
             const errors = validationResult(req);
             if(!errors.isEmpty()){
+                const transformedErrors = errors.array().map((error) => ({
+                    param: error.param,
+                    message: error.msg,
+                    code: generateErrCode(error.msg),
+                  }));
+
                 return res.status(400).json({
                     status:false,
-                    error:errors.array()
+                    error:transformedErrors
                 });
             }
             const {name,email,password} = req.body;
@@ -47,9 +54,15 @@ export class AuthController {
         try {
             const errors = validationResult(req);
             if(!errors.isEmpty()){
+                const transformedErrors = errors.array().map((error) => ({
+                    param: error.param,
+                    message: error.msg,
+                    code: generateErrCode(error.msg),
+                  }));
+
                 return res.status(400).json({
                     status:false,
-                    error:errors.array()
+                    error:transformedErrors
                 });
             } else {
                 const user = await User.findOne({email});
@@ -71,9 +84,15 @@ export class AuthController {
                     });
                 } else {
                     res.status(400).json({
-                        status:false,
-                        error:'Invalid credentials'
-                    });
+                        "status": false,
+                        "errors": [
+                          {
+                            "param": "password",
+                            "message": "The credentials you provided are invalid.",
+                            "code": "INVALID_CREDENTIALS"
+                          }
+                        ]
+                      });
                 }
             }
         } catch(error){

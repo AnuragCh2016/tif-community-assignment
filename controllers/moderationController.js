@@ -2,6 +2,8 @@ import Member from "../models/Member.js";
 import Role from "../models/Role.js";
 import Community from "../models/Community.js";
 import User from "../models/User.js";
+import { generateErrCode } from "../utils/generateErrorCode.js";
+import { validationResult } from "express-validator";
 
 export class ModerationController {
     static addMember = async(req,res) => {
@@ -11,27 +13,30 @@ export class ModerationController {
             //have to make sure loggedInUser is Community Admin of community trying to add members to
             const {community, user, role} = req.body;
             //check if all three details are provided
-            if(!community||!user||!role){
+            const errors = validationResult(req);
+            if(!errors.isEmpty()){
+                const transformedErrors = errors.array().map((error) => ({
+                    param: error.param,
+                    message: error.msg,
+                    code: generateErrCode(error.msg),
+                  }));
+
                 return res.status(400).json({
                     status:false,
-                    error:"Please provide all details"
+                    error:transformedErrors
                 });
             }
-
-            //check if community exists and if loggedInUser is Community Admin
             const checkCommunity = await Community.findOne({_id:community});
-            const checkUser = await User.findOne({_id:user});
-            const checkRole = await Role.findOne({_id:role});
-            if(!checkCommunity||!checkUser||!checkRole){
-                return res.status(404).json({
-                    status:false,
-                    error:"Incorrect details"
-                });
-            } else if(checkCommunity.owner!==id){
+            if(checkCommunity.owner!==id){
                 return res.status(403).json({
-                    status:false,
-                    error:"NOT_ALLOWED_ACCESS"
-                });
+                    "status": false,
+                    "errors": [
+                      {
+                        "message": "You are not authorized to perform this action.",
+                        "code": "NOT_ALLOWED_ACCESS"
+                      }
+                    ]
+                  });
             }
             const member = await Member.create({
                 community,
@@ -72,13 +77,23 @@ export class ModerationController {
             const loggedMember = await Member.findOne({user:id, community:checkMember.community}).populate('role');
             if(!checkMember){
                 res.status(404).json({
-                    status:false,
-                    error:"Incorrect details"
-                });
+                    "status": false,
+                    "errors": [
+                      {
+                        "message": "Member not found.",
+                        "code": "RESOURCE_NOT_FOUND"
+                      }
+                    ]
+                  });
             } else if(!loggedMember||loggedMember.role.name==="Community Member") {
                 res.status(403).json({
                     status:false,
-                    error:"NOT_ALLOWED_ACCESS"
+                    "errors": [
+                        {
+                          "message": "You are not authorized to perform this action.",
+                          "code": "NOT_ALLOWED_ACCESS"
+                        }
+                      ]
                 });
             } else {
                 const memberToDelete = await Member.findOneAndDelete({_id:memberId});

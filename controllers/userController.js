@@ -2,6 +2,7 @@ import Community from "../models/Community.js";
 import Member from "../models/Member.js";
 import Role from "../models/Role.js";
 import { validationResult } from "express-validator";
+import { generateErrCode } from "../utils/generateErrorCode.js";
 
 export class UserController {
     static createCommunity = async(req,res) => {
@@ -13,18 +14,24 @@ export class UserController {
             const {name} = req.body;
             const errors = validationResult(req);
             if(!errors.isEmpty()){
+                const transformedErrors = errors.array().map((error) => ({
+                    param: error.param,
+                    message: error.msg,
+                    code: generateErrCode(error.msg),
+                  }));
+
                 return res.status(400).json({
                     status:false,
-                    error:errors.array()
+                    error:transformedErrors
                 });
             }
             const community = await Community.create({name});
             community.owner = id;
             await community.save();
-
+            
             //if I am creating community, then role is Community Admin. Find id of same to create member
             const role = await Role.findOne({name:"Community Admin"});
-
+            
             //for logged in user, create a Member document with community id, member id and role
             const member = await Member.create({
                 community:community._id,
